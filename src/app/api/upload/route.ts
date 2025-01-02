@@ -6,9 +6,9 @@ import { db } from "~/server/db";
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const file = formData.get('video') as File;
+    const file = formData.get('video');
     
-    if (!file) {
+    if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
@@ -24,8 +24,12 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
+    // Get the filename from the FormData if available, or generate one
+    const fileName = (file instanceof File) ? file.name : 'video';
+    const fileExt = path.extname(fileName) || '.mp4';
+    
     // Create unique filename
-    const filename = `video-${Date.now()}${path.extname(file.name)}`;
+    const filename = `video-${Date.now()}${fileExt}`;
     const filepath = path.join(uploadsDir, filename);
     
     await writeFile(filepath, buffer);
@@ -45,4 +49,13 @@ export async function POST(req: Request) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
-} 
+}
+
+// Increase the maximum file size limit if needed
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb' // Adjust this value based on your needs
+    }
+  }
+}; 
