@@ -12,7 +12,6 @@ const config = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: 'standalone',
   async headers() {
     return [
       {
