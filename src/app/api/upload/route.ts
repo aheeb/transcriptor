@@ -3,13 +3,35 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { db } from "~/server/db";
 
+// Configure options for the API route
+export const config = {
+  api: {
+    bodyParser: false, // Disable the default body parser
+    responseLimit: false, // Remove response size limit
+  },
+};
+
 export async function POST(req: Request) {
   try {
+    // Ensure the request is a FormData request
+    if (!req.headers.get('content-type')?.includes('multipart/form-data')) {
+      return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
+    }
+
     const formData = await req.formData();
     const file = formData.get('video') as File;
     
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+
+    // Optional: Add file size check
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      return NextResponse.json({ 
+        error: 'File too large', 
+        details: 'Maximum file size is 100MB' 
+      }, { status: 413 });
     }
 
     // Ensure uploads directory exists

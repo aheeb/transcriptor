@@ -30,6 +30,14 @@ export function VideoUpload({ onUploadSuccess, apiKey }: VideoUploadProps) {
 
   const handleUpload = async () => {
     if (!videoFile) return;
+    
+    // Check file size before uploading
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (videoFile.size > maxSize) {
+      alert('File is too large. Maximum size is 100MB');
+      return;
+    }
+
     setIsUploading(true);
     
     try {
