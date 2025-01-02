@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { api } from "~/trpc/react";
 
-export function VideoUpload({ onUploadSuccess }: { onUploadSuccess: (videoId: number) => void }) {
+interface VideoUploadProps {
+  onUploadSuccess: (videoId: number) => void;
+  apiKey: string;
+}
+
+export function VideoUpload({ onUploadSuccess, apiKey }: VideoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   
@@ -42,10 +47,13 @@ export function VideoUpload({ onUploadSuccess }: { onUploadSuccess: (videoId: nu
         throw new Error(data.details || data.error || 'Upload failed');
       }
       
-      // Generate captions
+      // Generate captions with API key
       if (data.videoId) {
         console.log("Upload successful, videoId:", data.videoId);
-        await generateCaptions.mutateAsync({ videoId: data.videoId });
+        await generateCaptions.mutateAsync({ 
+          videoId: data.videoId,
+          apiKey: apiKey 
+        });
         onUploadSuccess(data.videoId);
       } else {
         throw new Error('No videoId returned from upload');

@@ -3,12 +3,14 @@
 import { VideoPlayer } from "~/app/_components/video-player";
 import { CaptionEditor } from "~/app/_components/caption-editor";
 import { VideoUpload } from "~/app/_components/video-upload";
+import { ApiKeyModal } from "~/app/_components/api-key-modal";
 import { api } from "~/trpc/react";
 import { useState } from "react";
 import type { Caption } from "~/types/caption";
 
 export default function EditorPage() {
   const [currentVideoId, setCurrentVideoId] = useState<number | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
 
   const utils = api.useUtils();
   
@@ -76,15 +78,25 @@ export default function EditorPage() {
     }
   };
 
+  const handleApiKeySubmit = (key: string) => {
+    setApiKey(key);
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-start p-8 bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+      <ApiKeyModal onApiKeySubmit={handleApiKeySubmit} />
       <h1 className="text-4xl font-bold mb-8">Caption Editor</h1>
       
       <div className="w-full max-w-4xl">
-        <VideoUpload onUploadSuccess={(videoId) => {
-          console.log("Upload success, setting videoId:", videoId);
-          setCurrentVideoId(videoId);
-        }} />
+        {apiKey && (
+          <VideoUpload 
+            onUploadSuccess={(videoId) => {
+              console.log("Upload success, setting videoId:", videoId);
+              setCurrentVideoId(videoId);
+            }}
+            apiKey={apiKey}
+          />
+        )}
         
         {currentVideoId && video && (
           <>

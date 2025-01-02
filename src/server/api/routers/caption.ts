@@ -71,7 +71,10 @@ export const captionRouter = createTRPCRouter({
     }),
 
   generateFromVideo: publicProcedure
-    .input(z.object({ videoId: z.number() }))
+    .input(z.object({ 
+      videoId: z.number(),
+      apiKey: z.string()
+    }))
     .mutation(async ({ ctx, input }) => {
       // 1. Get video from database
       const video = await ctx.db.video.findUnique({
@@ -99,7 +102,7 @@ export const captionRouter = createTRPCRouter({
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${input.apiKey}`,
         },
         body: formData,
       });
