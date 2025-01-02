@@ -18,3 +18,23 @@ model Post {
 
     @@index([name])
 }
+
+model Caption {
+  id        Int      @id @default(autoincrement())
+  videoId   Int
+  startTime String
+  endTime   String
+  text      String
+  style     String?
+  video     Video    @relation(fields: [videoId], references: [id])
+
+  @@index([videoId])
+}
+
+model Video {
+  id        Int       @id @default(autoincrement())
+  url       String
+  captions  Caption[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

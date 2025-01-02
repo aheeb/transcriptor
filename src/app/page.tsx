@@ -47,6 +47,12 @@ export default async function Home() {
 
           <LatestPost />
         </div>
+        <Link 
+          href="/editor"
+          className="mt-4 rounded-full bg-white/10 px-10 py-3 font-semibold transition hover:bg-white/20"
+        >
+          Open Caption Editor
+        </Link>
       </main>
     </HydrateClient>
   );
