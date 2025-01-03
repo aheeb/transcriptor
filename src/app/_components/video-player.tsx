@@ -44,6 +44,7 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
   const [isDownloading, setIsDownloading] = useState(false);
   const [cursorPosition, setCursorPosition] = useState<CursorPosition | null>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'processing' | 'complete' | 'error'>('idle');
 
   useEffect(() => {
     const caption = captions.find(
@@ -120,21 +121,43 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
   };
 
   const downloadMutation = api.video.downloadWithCaptions.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
+      setDownloadStatus('processing');
+      setIsDownloading(true);
+    },
+    onError: (error) => {
+      console.error('Download failed:', error);
+      alert('Failed to start download process');
+      setDownloadStatus('error');
+      setIsDownloading(false);
+    }
+  });
+
+  const { data: status } = api.video.getDownloadStatus.useQuery(
+    { videoId },
+    { 
+      enabled: downloadStatus === 'processing',
+      refetchInterval: downloadStatus === 'processing' ? 2000 : false // Poll every 2 seconds while processing
+    }
+  );
+
+  useEffect(() => {
+    if (status?.status === 'complete' && status.outputPath) {
+      setDownloadStatus('complete');
+      setIsDownloading(false);
+      // Trigger download
       const link = document.createElement('a');
-      link.href = data.url;
+      link.href = status.outputPath;
       link.download = 'video-with-captions.mp4';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    } else if (status?.status === 'error') {
+      setDownloadStatus('error');
       setIsDownloading(false);
-    },
-    onError: (error) => {
-      console.error('Download failed:', error);
-      alert('Failed to download video with captions');
-      setIsDownloading(false);
+      alert(`Download failed: ${status.error || 'Unknown error'}`);
     }
-  });
+  }, [status]);
 
   const handleCaptionSplit = () => {
     if (!cursorPosition || !selectedCaption) return;
@@ -525,6 +548,7 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
         <button
           onClick={() => {
             setIsDownloading(true);
+            setDownloadStatus('processing');
             downloadMutation.mutate({ videoId });
           }}
           disabled={isDownloading}

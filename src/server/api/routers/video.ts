@@ -34,23 +34,65 @@ export const videoRouter = createTRPCRouter({
       if (!video) throw new Error('Video not found');
 
       const timestamp = Date.now();
-      const assPath = path.join(process.cwd(), 'public', 'uploads', `temp-${input.videoId}-${timestamp}.ass`);
-      const outputVideoPath = path.join(process.cwd(), 'public', 'uploads', `video-with-captions-${input.videoId}-${timestamp}.mp4`);
-      const inputVideoPath = path.join(process.cwd(), 'public', video.url);
+      const outputFilename = `video-with-captions-${input.videoId}-${timestamp}.mp4`;
+      const outputPath = `/uploads/${outputFilename}`;
 
-      try {
-        await writeFile(assPath, generateSrtContent(video.captions));
-        await execAsync(`ffmpeg -i "${inputVideoPath}" -vf "ass=${assPath}" "${outputVideoPath}"`);
-        await unlink(assPath);
+      // Create or update a download status record
+      const downloadStatus = await ctx.db.downloadStatus.upsert({
+        where: { videoId: input.videoId },
+        create: {
+          videoId: input.videoId,
+          status: 'processing',
+          outputPath: outputPath,
+        },
+        update: {
+          status: 'processing',
+          outputPath: outputPath,
+          error: null,
+        },
+      });
 
-        return { url: `/uploads/video-with-captions-${input.videoId}-${timestamp}.mp4` };
-      } catch (error) {
+      // Start processing in the background
+      (async () => {
         try {
-          await unlink(assPath).catch(() => {});
-          await unlink(outputVideoPath).catch(() => {});
-        } catch {}
-        throw error;
-      }
+          const assPath = path.join(process.cwd(), 'public', 'uploads', `temp-${input.videoId}-${timestamp}.ass`);
+          const outputVideoPath = path.join(process.cwd(), 'public', outputPath);
+          const inputVideoPath = path.join(process.cwd(), 'public', video.url);
+
+          await writeFile(assPath, generateSrtContent(video.captions));
+          await execAsync(`ffmpeg -i "${inputVideoPath}" -vf "ass=${assPath}" "${outputVideoPath}"`);
+          await unlink(assPath);
+
+          // Update status to complete
+          await ctx.db.downloadStatus.update({
+            where: { id: downloadStatus.id },
+            data: { status: 'complete' }
+          });
+        } catch (error) {
+          console.error('Download processing failed:', error);
+          await ctx.db.downloadStatus.update({
+            where: { id: downloadStatus.id },
+            data: { 
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }
+          });
+        }
+      })();
+
+      return { 
+        downloadId: downloadStatus.id,
+        status: 'processing'
+      };
+    }),
+
+  getDownloadStatus: publicProcedure
+    .input(z.object({ videoId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const status = await ctx.db.downloadStatus.findUnique({
+        where: { videoId: input.videoId }
+      });
+      return status;
     }),
 });
 

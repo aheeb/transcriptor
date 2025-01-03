@@ -31,10 +31,20 @@ model Caption {
   @@index([videoId])
 }
 
+model DownloadStatus {
+  id        Int      @id @default(autoincrement())
+  videoId   Int      @unique
+  status    String   // 'processing' | 'complete' | 'error'
+  outputPath String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  video     Video    @relation(fields: [videoId], references: [id])
+}
+
 model Video {
-  id        Int       @id @default(autoincrement())
-  url       String
-  captions  Caption[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id             Int            @id @default(autoincrement())
+  url            String
+  captions       Caption[]
+  downloadStatus DownloadStatus?
 }
