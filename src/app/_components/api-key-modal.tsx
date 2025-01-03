@@ -37,10 +37,10 @@ export function ApiKeyModal({ onApiKeySubmit }: ApiKeyModalProps) {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full">
-        <h2 className="text-xl font-bold mb-4">Enter OpenAI API Key</h2>
-        <p className="mb-4 text-gray-300">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full">
+        <h2 className="text-lg sm:text-xl font-bold mb-4">Enter OpenAI API Key</h2>
+        <p className="mb-4 text-sm sm:text-base text-gray-300">
           Please enter your OpenAI API key to use the caption generation feature.
           You can find your API key in your OpenAI dashboard.
         </p>
@@ -50,12 +50,12 @@ export function ApiKeyModal({ onApiKeySubmit }: ApiKeyModalProps) {
             value={apiKey}
             onChange={handleKeyChange}
             placeholder="sk-..."
-            className="w-full p-2 rounded bg-gray-700 text-white"
+            className="w-full p-3 rounded bg-gray-700 text-white text-base"
             required
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700"
+            className="w-full bg-blue-600 text-white rounded py-3 text-base hover:bg-blue-700"
           >
             Save API Key
           </button>

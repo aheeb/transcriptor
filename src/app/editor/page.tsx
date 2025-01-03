@@ -83,11 +83,11 @@ export default function EditorPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start p-8 bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+    <main className="flex min-h-screen flex-col items-center justify-start p-2 sm:p-8 bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
       <ApiKeyModal onApiKeySubmit={handleApiKeySubmit} />
-      <h1 className="text-4xl font-bold mb-8">Caption Editor</h1>
+      <h1 className="text-2xl sm:text-4xl font-bold mb-4 sm:mb-8">Caption Editor</h1>
       
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-4xl px-2 sm:px-0">
         {apiKey && (
           <VideoUpload 
             onUploadSuccess={(videoId) => {

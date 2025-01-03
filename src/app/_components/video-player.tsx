@@ -33,7 +33,7 @@ interface CursorPosition {
 export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: VideoPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [currentCaption, setCurrentCaption] = useState<Caption | null>(null);
-  const [dragPosition, setDragPosition] = useState<Position>({ x: 0.5, y: 0.9 });
+  const [dragPosition, setDragPosition] = useState<Position>({ x: 0.5, y: 0.5 });
   const [isDragging, setIsDragging] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -153,7 +153,9 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
       startTime: formatTime(cursorPosition.timestamp),
       endTime: selectedCaption.endTime,
       text: afterText.trim(),
-      style: selectedCaption.style ?? undefined,
+      style: JSON.stringify({
+        position: { x: 0.5, y: 0.5 }
+      }),
     };
 
     onCaptionEdit([firstCaption, secondCaption], 'split');
@@ -213,11 +215,30 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
     setIsDraggingPlayhead(false);
   };
 
+  const isTouchDevice = () => {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div 
         ref={containerRef}
-        className="relative aspect-video bg-black"
+        className="relative aspect-video bg-black touch-none"
+        onTouchMove={(e) => {
+          if (isDragging) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (rect) {
+              const newPosition = {
+                x: Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width)),
+                y: Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height)),
+              };
+              setDragPosition(newPosition);
+            }
+          }
+        }}
+        onTouchEnd={handleDragEnd}
         onMouseMove={handleDragMove}
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
@@ -248,6 +269,9 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
                 handleDragStart(e);
               }
             }}
+            onTouchStart={(e) => {
+              handleDragStart(e as unknown as React.MouseEvent);
+            }}
           >
             <span className="bg-black/50 px-2 py-1 rounded text-white whitespace-pre-wrap">
               {currentCaption.text}
@@ -259,25 +283,15 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
         )}
 
         {/* Video controls with timeline */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
-          <div className="flex items-center gap-2">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-4">
+          <div className="flex items-center gap-4">
             <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePlayPause();
-              }}
-              className="hover:bg-white/20 p-2 rounded"
+              onClick={togglePlayPause}
+              className="p-4 hover:bg-white/20 rounded-full"
             >
               {isPlaying ? '⏸️' : '▶️'}
             </button>
-            <div 
-              className="flex-1 h-2 bg-gray-700 rounded cursor-pointer relative"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                seekTo(pos * duration);
-              }}
-            >
+            <div className="flex-1 h-4 bg-gray-700 rounded-full cursor-pointer relative">
               {/* Playback progress */}
               <div 
                 className="absolute top-0 left-0 h-full bg-white rounded"
@@ -304,61 +318,121 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
 
       {/* Timeline section - only show if we have duration */}
       {duration > 0 && (
-        <div className="mt-8 bg-gray-900 rounded-lg p-4">
-          <div 
-            className="relative h-24 bg-gray-800 mb-4"
-            onMouseMove={handleTimelineMouseMove}
-            onMouseUp={handleTimelineDragEnd}
-            onMouseLeave={handleTimelineDragEnd}
-          >
-            {/* Time markers */}
-            {Array.from({ length: Math.ceil(duration / 10) }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute h-2 w-px bg-gray-600"
-                style={{ left: `${(i * 10 / duration) * 100}%` }}
-              >
-                <span className="absolute -top-4 text-xs transform -translate-x-1/2 text-gray-400">
-                  {formatTime(i * 10)}
-                </span>
-              </div>
-            ))}
-
-            {/* Caption segments */}
-            {captions.map((caption, index) => (
-              <div
-                key={index}
-                className="absolute h-12 bg-blue-500/20 hover:bg-blue-500/30 cursor-pointer"
-                style={{
-                  left: `${getTimelinePosition(caption.startTime)}%`,
-                  width: `${getTimelinePosition(caption.endTime) - getTimelinePosition(caption.startTime)}%`,
-                  top: '20px',
-                }}
-                onClick={() => {
-                  setSelectedCaption(caption);
-                  seekTo(parseTimeToSeconds(caption.startTime));
-                }}
-              >
-                <div className="p-1 text-xs truncate">
-                  {caption.text}
+        <div className="mt-4 bg-gray-900 rounded-lg p-2 sm:p-4">
+          <div className="relative overflow-x-auto">
+            <div 
+              className="relative h-24 sm:h-32 bg-gray-800"
+              style={{ 
+                minWidth: isTouchDevice() ? '800px' : 'auto',
+                width: '100%',
+                touchAction: 'pan-x pinch-zoom'
+              }}
+              onMouseMove={handleTimelineMouseMove}
+              onMouseUp={handleTimelineDragEnd}
+              onMouseLeave={handleTimelineDragEnd}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pos = (touch.clientX - rect.left) / rect.width;
+                if (pos >= 0 && pos <= 1) {
+                  setIsDraggingPlayhead(true);
+                  seekTo(pos * duration);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (isDraggingPlayhead) {
+                  const touch = e.touches[0];
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pos = (touch.clientX - rect.left) / rect.width;
+                  if (pos >= 0 && pos <= 1) {
+                    seekTo(pos * duration);
+                  }
+                }
+              }}
+              onTouchEnd={() => {
+                setIsDraggingPlayhead(false);
+              }}
+            >
+              {/* Time markers */}
+              {Array.from({ length: Math.ceil(duration / (isTouchDevice() ? 30 : 10)) }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute h-2 w-px bg-gray-600"
+                  style={{ 
+                    left: `${((i * (isTouchDevice() ? 30 : 10)) / duration) * 100}%`,
+                    display: isTouchDevice() && i % 2 !== 0 ? 'none' : 'block'
+                  }}
+                >
+                  <span className="absolute -top-4 text-[10px] sm:text-xs transform -translate-x-1/2 text-gray-400">
+                    {formatTime(i * (isTouchDevice() ? 30 : 10))}
+                  </span>
                 </div>
-              </div>
-            ))}
+              ))}
 
-            {/* Updated Playhead */}
-            <div
-              className="absolute top-0 w-1 h-full bg-white cursor-col-resize hover:bg-blue-400 transition-colors"
-              style={{ left: `${(currentTime / duration) * 100}%` }}
-              onMouseDown={handlePlayheadDragStart}
-            />
+              {/* Caption segments */}
+              {captions.map((caption, index) => (
+                <div
+                  key={index}
+                  className="absolute h-12 bg-blue-500/20 hover:bg-blue-500/30 active:bg-blue-500/40 cursor-pointer"
+                  style={{
+                    left: `${getTimelinePosition(caption.startTime)}%`,
+                    width: `${Math.max(
+                      getTimelinePosition(caption.endTime) - getTimelinePosition(caption.startTime),
+                      isTouchDevice() ? 10 : 5 // Minimum width for touch targets
+                    )}%`,
+                    top: '20px',
+                  }}
+                  onClick={() => {
+                    setSelectedCaption(caption);
+                    seekTo(parseTimeToSeconds(caption.startTime));
+                  }}
+                >
+                  <div className="p-1 text-[10px] sm:text-xs truncate">
+                    {caption.text}
+                  </div>
+                </div>
+              ))}
+
+              {/* Playhead */}
+              <div
+                className="absolute top-0 w-2 sm:w-1 h-full bg-white cursor-col-resize hover:bg-blue-400 active:bg-blue-500 transition-colors"
+                style={{ 
+                  left: `${(currentTime / duration) * 100}%`,
+                  marginLeft: isTouchDevice() ? '-4px' : '-1px',
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  setIsDraggingPlayhead(true);
+                }}
+                onMouseDown={handlePlayheadDragStart}
+              />
+
+              {/* Touch indicator */}
+              {isDraggingPlayhead && isTouchDevice() && (
+                <div 
+                  className="absolute top-0 w-4 h-4 bg-blue-500 rounded-full -mt-2"
+                  style={{ 
+                    left: `${(currentTime / duration) * 100}%`,
+                    transform: 'translateX(-50%)',
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Scroll indicator only on mobile */}
+            {isTouchDevice() && (
+              <div className="mt-2 text-center text-xs text-gray-400">
+                Scroll horizontally to view more
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Caption Editor */}
       {selectedCaption && (
-        <div className="mt-4 bg-gray-900 rounded-lg p-4">
-          <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="mt-4 bg-gray-900 rounded-lg p-2 sm:p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm mb-1">Start Time</label>
               <input
@@ -418,13 +492,13 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
             />
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4">
             {cursorPosition && (
               <button
                 onClick={handleCaptionSplit}
-                className="px-4 py-2 bg-yellow-600 rounded hover:bg-yellow-700"
+                className="flex-1 px-4 py-3 bg-yellow-600 rounded hover:bg-yellow-700"
               >
-                Split at Cursor
+                Split
               </button>
             )}
             <button
@@ -432,13 +506,13 @@ export function VideoPlayer({ videoUrl, captions, onCaptionEdit, videoId }: Vide
                 onCaptionEdit([selectedCaption], 'update');
                 setSelectedCaption(null);
               }}
-              className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+              className="flex-1 px-4 py-3 bg-blue-600 rounded hover:bg-blue-700"
             >
-              Save Changes
+              Save
             </button>
             <button
               onClick={() => setSelectedCaption(null)}
-              className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+              className="flex-1 px-4 py-3 bg-gray-700 rounded hover:bg-gray-600"
             >
               Cancel
             </button>

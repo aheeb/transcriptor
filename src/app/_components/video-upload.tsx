@@ -31,13 +31,6 @@ export function VideoUpload({ onUploadSuccess, apiKey }: VideoUploadProps) {
   const handleUpload = async () => {
     if (!videoFile) return;
     
-    // Check file size before uploading
-    const maxSize = 100 * 1024 * 1024; // 100MB
-    if (videoFile.size > maxSize) {
-      alert('File is too large. Maximum size is 100MB');
-      return;
-    }
-
     setIsUploading(true);
     
     try {
@@ -76,20 +69,22 @@ export function VideoUpload({ onUploadSuccess, apiKey }: VideoUploadProps) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4">
-      <input
-        type="file"
-        accept="video/*"
-        onChange={handleFileChange}
-        className="mb-4"
-      />
-      <button
-        onClick={handleUpload}
-        disabled={!videoFile || isUploading}
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-      >
-        {isUploading ? 'Processing...' : 'Upload & Generate Captions'}
-      </button>
+    <div className="w-full max-w-md mx-auto p-2 sm:p-4">
+      <div className="flex flex-col gap-4">
+        <input
+          type="file"
+          accept="video/*"
+          onChange={handleFileChange}
+          className="w-full text-sm sm:text-base"
+        />
+        <button
+          onClick={handleUpload}
+          disabled={!videoFile || isUploading}
+          className="w-full px-4 py-3 bg-blue-600 text-white rounded disabled:opacity-50 text-base"
+        >
+          {isUploading ? 'Processing...' : 'Upload & Generate Captions'}
+        </button>
+      </div>
     </div>
   );
 } 

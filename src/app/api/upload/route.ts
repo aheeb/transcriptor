@@ -1,70 +1,62 @@
 import { writeFile, mkdir } from 'fs/promises';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { db } from "~/server/db";
 
 // Configure options for the API route
 export const config = {
   api: {
-    bodyParser: false, // Disable the default body parser
-    responseLimit: false, // Remove response size limit
+    bodyParser: {
+      sizeLimit: '500mb'
+    },
+    responseLimit: '500mb'
   },
 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // Ensure the request is a FormData request
-    if (!req.headers.get('content-type')?.includes('multipart/form-data')) {
-      return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
-    }
-
-    const formData = await req.formData();
-    const file = formData.get('video') as File;
+    const data = await req.formData();
+    const video = data.get('video') as File;
     
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!video) {
+      return NextResponse.json(
+        { error: 'No video file provided' },
+        { status: 400 }
+      );
     }
 
-    // Optional: Add file size check
-    const maxSize = 100 * 1024 * 1024; // 100MB
-    if (file.size > maxSize) {
-      return NextResponse.json({ 
-        error: 'File too large', 
-        details: 'Maximum file size is 100MB' 
-      }, { status: 413 });
-    }
+    // Create uploads directory if it doesn't exist
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    await mkdir(uploadDir, { recursive: true });
 
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadsDir, { recursive: true });
-    } catch (err) {
-      console.error('Failed to create uploads directory:', err);
-    }
+    // Generate unique filename
+    const filename = `video-${Date.now()}${path.extname(video.name)}`;
+    const filepath = path.join('uploads', filename);
+    const fullPath = path.join(process.cwd(), 'public', filepath);
 
-    // Save file to disk
-    const bytes = await file.arrayBuffer();
+    // Convert File to Buffer and save
+    const bytes = await video.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
-    // Create unique filename
-    const filename = `video-${Date.now()}${path.extname(file.name)}`;
-    const filepath = path.join(uploadsDir, filename);
-    
-    await writeFile(filepath, buffer);
-    
+    await writeFile(fullPath, buffer);
+
     // Save to database
-    const video = await db.video.create({
+    const dbVideo = await db.video.create({
       data: {
-        url: `/uploads/${filename}`,
+        url: filepath,
       },
     });
 
-    return NextResponse.json({ videoId: video.id, success: true });
+    return NextResponse.json({ 
+      success: true,
+      videoId: dbVideo.id,
+      url: filepath
+    });
+
   } catch (error) {
     console.error('Upload error:', error);
-    return NextResponse.json({ 
-      error: 'Upload failed', 
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Upload failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 } 
